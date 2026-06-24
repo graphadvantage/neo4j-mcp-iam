@@ -68,7 +68,7 @@ func NewNeo4jMCPServer(version string, cfg *config.Config, dbService database.Se
 	hooks := neo4jServer.configureHooks()
 
 	mcpServer := server.NewMCPServer(
-		"neo4j-mcp",
+		"neo4j-iam-mcp",
 		version,
 		server.WithToolCapabilities(true),
 		server.WithHooks(hooks),

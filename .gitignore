@@ -43,3 +43,6 @@ dist/
 CLAUDE.md
 gemini.md
 *.pem
+
+# Local specifications/background documents
+/specifications

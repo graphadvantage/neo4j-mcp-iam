@@ -8,6 +8,7 @@ import (
 	"github.com/neo4j/mcp/internal/tools"
 	"github.com/neo4j/mcp/internal/tools/cypher"
 	"github.com/neo4j/mcp/internal/tools/gds"
+	"github.com/neo4j/mcp/internal/tools/iam"
 )
 
 // registerTools registers all enabled MCP tools and adds them to the provided MCP server.
@@ -29,6 +30,7 @@ type toolCategory int
 const (
 	cypherCategory toolCategory = 0
 	gdsCategory    toolCategory = 1
+	iamCategory    toolCategory = 2
 )
 
 type ToolDefinition struct {
@@ -118,8 +120,8 @@ func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDef
 		{
 			category: cypherCategory,
 			definition: server.ServerTool{
-				Tool:    cypher.ReadCypherSpec(),
-				Handler: cypher.ReadCypherHandler(deps),
+				Tool:    cypher.SecureReadCypherSpec(),
+				Handler: cypher.SecureReadCypherHandler(deps),
 			},
 			readonly: true,
 		},
@@ -130,6 +132,14 @@ func (s *Neo4jMCPServer) getAllToolsDefs(deps *tools.ToolDependencies) []ToolDef
 				Handler: cypher.WriteCypherHandler(deps),
 			},
 			readonly: false,
+		},
+		{
+			category: iamCategory,
+			definition: server.ServerTool{
+				Tool:    iam.ResolveIdentitySpec(),
+				Handler: iam.ResolveIdentityHandler(deps),
+			},
+			readonly: true,
 		},
 		// GDS Category/Section
 		{

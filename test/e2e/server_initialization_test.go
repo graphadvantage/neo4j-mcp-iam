@@ -41,7 +41,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		require.NoError(t, err, "failed to initialize MCP server")
 
 		// Verify server info
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 		assert.NotEmpty(t, initResponse.ServerInfo.Version)
 
 		// Verify capabilities
@@ -68,7 +68,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		// Test should pass as the default database is neo4j
 		initRequest := helpers.BuildInitializeRequest()
 		initResponse, _ := mcpClient.Initialize(ctx, initRequest)
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 
 	})
 
@@ -93,7 +93,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		initResponse, err := mcpClient.Initialize(ctx, initRequest)
 		require.NoError(t, err, "failed to initialize MCP server in read-only mode")
 
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 
 		// List tools to verify read-only mode behavior
 		listToolsResponse, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
@@ -127,7 +127,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		initResponse, err := mcpClient.Initialize(ctx, initRequest)
 		require.NoError(t, err, "failed to initialize MCP server in read-only mode")
 
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 
 		listToolsResponse, err := mcpClient.ListTools(ctx, mcp.ListToolsRequest{})
 		require.NoError(t, err, "failed to list tools with read-only mode as false")
@@ -154,7 +154,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		initResponse, err := mcpClient.Initialize(ctx, initRequest)
 		require.NoError(t, err, "failed to initialize MCP server with telemetry disabled")
 
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 
 		t.Log("Server initialized successfully with telemetry disabled")
 	})
@@ -180,7 +180,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		initResponse, err := mcpClient.Initialize(ctx, initRequest)
 		require.NoError(t, err, "failed to initialize MCP server with custom schema sample size")
 
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 
 		t.Log("Server initialized successfully with custom schema sample size")
 	})
@@ -206,7 +206,7 @@ func TestServerInitializationE2E(t *testing.T) {
 		initResponse, err := mcpClient.Initialize(ctx, initRequest)
 		require.NoError(t, err, "failed to initialize MCP server with invalid schema sample size")
 
-		assert.Equal(t, "neo4j-mcp", initResponse.ServerInfo.Name)
+		assert.Equal(t, "neo4j-iam-mcp", initResponse.ServerInfo.Name)
 
 		t.Log("Server initialized successfully with invalid schema sample size (using default value)")
 	})

@@ -19,7 +19,7 @@ import (
 	"github.com/neo4j/neo4j-go-driver/v6/neo4j"
 )
 
-// go build -C cmd/neo4j-mcp -o ../../bin/ -ldflags "-X 'main.Version=9999'"
+// go build -C cmd/neo4j-mcp -o ../../bin/neo4j-iam-mcp -ldflags "-X 'main.Version=9999'"
 var Version = "development"
 
 const MixPanelEndpoint = "https://api.mixpanel.com"

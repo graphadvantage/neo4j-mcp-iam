@@ -14,10 +14,10 @@ import (
 // osExit is a variable that can be mocked in tests
 var osExit = os.Exit
 
-const helpText = `neo4j-mcp - Neo4j Model Context Protocol Server
+const helpText = `neo4j-iam-mcp - Neo4j IAM Model Context Protocol Server
 
 Usage:
-  neo4j-mcp [OPTIONS]
+  neo4j-iam-mcp [OPTIONS]
 
 Options:
   -h, --help                          Show this help message
@@ -64,10 +64,10 @@ Optional Environment Variables:
 
 Examples:
   # Using environment variables
-  NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=password neo4j-mcp
+  NEO4J_URI=bolt://localhost:7687 NEO4J_USERNAME=neo4j NEO4J_PASSWORD=password neo4j-iam-mcp
 
   # Using CLI flags (takes precedence over environment variables)
-  neo4j-mcp --neo4j-uri bolt://localhost:7687 --neo4j-username neo4j --neo4j-password password
+  neo4j-iam-mcp --neo4j-uri bolt://localhost:7687 --neo4j-username neo4j --neo4j-password password
 
 For more information, visit: https://github.com/neo4j/mcp
 `
@@ -170,7 +170,7 @@ func HandleArgs(version string) {
 
 	flags := make(map[string]bool)
 	var err error
-	i := 1 // we start from 1 because os.Args[0] is the program name ("neo4j-mcp") - not a flag
+	i := 1 // we start from 1 because os.Args[0] is the program name ("neo4j-iam-mcp") - not a flag
 
 	for i < len(os.Args) {
 		arg := os.Args[i]
@@ -226,7 +226,7 @@ func HandleArgs(version string) {
 	}
 
 	if flags["version"] {
-		fmt.Printf("neo4j-mcp version: %s\n", version)
+		fmt.Printf("neo4j-iam-mcp version: %s\n", version)
 		osExit(0)
 	}
 }

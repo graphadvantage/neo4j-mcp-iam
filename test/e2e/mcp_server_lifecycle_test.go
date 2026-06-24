@@ -41,7 +41,7 @@ func TestSeverLifecycleMCPE2E(t *testing.T) {
 			t.Fatalf("failed to initialize MCP server: %v", err)
 		}
 
-		expectedServerInfoName := "neo4j-mcp"
+		expectedServerInfoName := "neo4j-iam-mcp"
 		if initializeResponse.ServerInfo.Name != expectedServerInfoName {
 			t.Fatalf("expected server name returned from initialize request to be: %s, but found: %s", expectedServerInfoName, initializeResponse.ServerInfo.Name)
 		}

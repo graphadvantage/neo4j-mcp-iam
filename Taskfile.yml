@@ -7,13 +7,21 @@ dotenv: [".env.task"]
 tasks:
   build:
     cmds:
-      - go build -C cmd/neo4j-mcp -o ../../bin/ {{.CLI_ARGS}}
+      - go build -C cmd/neo4j-mcp -o ../../bin/neo4j-iam-mcp {{.CLI_ARGS}}
   run:
     cmds:
       - go run ./cmd/neo4j-mcp
   run:compiled:
     cmds:
-      - ./bin/neo4j-mcp {{.CLI_ARGS}}
+      - ./bin/neo4j-iam-mcp {{.CLI_ARGS}}
+  dev:watch:
+    desc: Rebuild bin/neo4j-iam-mcp whenever source files change
+    cmds:
+      - ./scripts/dev-rebuild.sh
+  dev:watch:install:
+    desc: Rebuild and install to /usr/local/bin/neo4j-iam-mcp whenever source files change
+    cmds:
+      - INSTALL_TO=/usr/local/bin/neo4j-iam-mcp ./scripts/dev-rebuild.sh
   generate:
     cmds:
       - go generate ./...
@@ -41,4 +49,4 @@ tasks:
       - npx @modelcontextprotocol/inspector go run ./cmd/neo4j-mcp
   interactive-client:
     cmds:
-      - go run ./client/... bin/neo4j-mcp
+      - go run ./client/... bin/neo4j-iam-mcp

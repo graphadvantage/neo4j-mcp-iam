@@ -1,6 +1,6 @@
 {
   "manifest_version": "0.3",
-  "name": "neo4j-mcp",
+  "name": "neo4j-mcp-iam",
   "version": "1.0.0",
   "description": "Official Model Context Protocol (MCP) server for Neo4j.",
   "author": {
@@ -77,9 +77,9 @@
   },
   "server": {
     "type": "binary",
-    "entry_point": "neo4j-mcp",
+    "entry_point": "neo4j-iam-mcp",
     "mcp_config": {
-      "command": "${__dirname}${/}bin/neo4j-mcp",
+      "command": "/usr/local/bin/neo4j-iam-mcp",
       "env": {
         "NEO4J_URI": "${user_config.NEO4J_URI}",
         "NEO4J_USERNAME": "${user_config.NEO4J_USERNAME}",
@@ -99,12 +99,16 @@
       "description": "Introspect labels, relationship types, property keys"
     },
     {
-      "name": "read-cypher",
-      "description": "Execute arbitrary Cypher (read mode)"
+      "name": "secure-read-cypher",
+      "description": "Execute constrained read Cypher with IAM list-based authorization filtering"
     },
     {
       "name": "write-cypher",
       "description": "Execute arbitrary Cypher (write mode)"
+    },
+    {
+      "name": "resolve-identity",
+      "description": "Resolve the authenticated principal and IAM graph group memberships"
     },
     {
       "name": "list-gds-procedures",
@@ -120,7 +124,8 @@
     "Neo4j MCP",
     "Neo4j MCP Server",
     "Neo4j Official MCP Server",
-    "neo4j-mcp"
+    "neo4j-mcp-iam",
+    "neo4j-iam-mcp"
   ],
   "license": "GPL",
   "repository": {
