@@ -1,67 +1,183 @@
-<!-- mcp-name: io.github.neo4j/mcp -->
+# Neo4j MCP IAM
 
-# Neo4j MCP
+This repo is an experimental IAM-aware fork of the Neo4j MCP server. It explores a query-mediation pattern for graphs where access is stored as list-valued permissions on domain nodes, for example:
 
-Neo4j MCP gives AI assistants and LLM-powered tools direct, structured access to your Neo4j graph database.
-By implementing the Model Context Protocol (MCP), it acts as a bridge between any MCP-compatible client, such as Claude, Cursor, or VS Code with MCP support, and your Neo4j instance.
+```cypher
+(:Job {
+  `Permissions.Read`: ["everyone", "group2"],
+  `Permissions.Create`: ["group1"],
+  `Permissions.Update`: ["group1"],
+  `Permissions.Delete`: ["group1"]
+})
+```
 
-## Features
+The core idea is simple: SSO identifies the user, the graph resolves the user's effective groups, and `secure-read-cypher` composes an authorization wrapper around text-to-Cypher output before Neo4j executes it.
 
-- Explore your graph schema - discover node labels, relationship types, and property keys
-- Let AI reason on your data model without prior knowledge
-- Run Cypher queries - execute, read, and write queries against your database in response to natural language prompts
-- Inspect and analyze data - retrieve nodes, relationships, and paths to answer questions, generate summaries, or feed data to other workflows
+## Current Test Model
+
+For the local proof of concept, the useful graph shape is intentionally small:
+
+```cypher
+(:User)-[:MEMBER_OF]->(:AdGroup)
+()-[:EXECUTES]->(:Job)
+```
+
+Users may also carry a direct group list:
+
+```cypher
+(:User {
+  name: "johnny.kinnaird@neo4j.com",
+  AdGroupList: ["everyone", "group1", "group2"]
+})
+```
+
+`AdGroup` nodes are identity metadata only. CRUD permissions live on `:Job` nodes via `Permissions.Read`, `Permissions.Create`, `Permissions.Update`, and `Permissions.Delete`.
 
 ## Tools
 
-- `get-schema` — introspect labels, relationship types, property keys
-- `read-cypher` — execute read-only Cypher queries that do not modify database data, enforced via `EXPLAIN` and Neo4j's query-type classification. **Note:** custom procedures or functions incorrectly classified as read-only by Neo4j may bypass this check; ensuring correct classification is the responsibility of the procedure/function maintainer.
-- `write-cypher` — execute write Cypher queries (disabled if `NEO4J_READ_ONLY=true`)
-- `list-gds-procedures` — list available GDS procedures
+- `get-schema` inspects labels, relationship types, and property keys.
+- `resolve-identity` resolves the current or test-impersonated principal and expands IAM groups.
+- `secure-read-cypher` runs a generated Cypher fragment inside the IAM wrapper.
+- `write-cypher` still exists in the codebase, but should be hidden for Claude testing with `NEO4J_READ_ONLY=true`.
+- Raw `read-cypher` is intentionally not registered in this IAM build, because it would bypass the IAM filter.
 
-## Installation
+## Secure Read Flow
 
-**Install with PyPI:**
+`secure-read-cypher` owns the security-sensitive parts of the query:
 
-```bash
-pip install neo4j-mcp-server
+```text
+auth prelude
+  + generated text2cypher fragment
+  + IAM WHERE filter
+  + final RETURN / aggregate
 ```
 
-Otherwise see [MCP documentation -> Installation](https://neo4j.com/docs/mcp/current/installation).
-
-## Server configuration (VSCode)
-
-Create / edit `mcp.json`:
+Example tool input:
 
 ```json
 {
-  "servers": {
-    "neo4j": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["-m", "neo4j_mcp_server"],
-      "env": {
-        "NEO4J_URI": "bolt://localhost:7687",
-        "NEO4J_USERNAME": "neo4j",
-        "NEO4J_PASSWORD": "password",
-        "NEO4J_DATABASE": "neo4j",
-        "NEO4J_READ_ONLY": "true",
-        "NEO4J_TELEMETRY": "false",
-        "NEO4J_LOG_LEVEL": "info",
-        "NEO4J_LOG_FORMAT": "text",
-        "NEO4J_SCHEMA_SAMPLE_SIZE": "100"
-      }
+  "principal": "johnny.kinnaird@neo4j.com",
+  "query": "MATCH (a)-[:EXECUTES]->(j:Job)",
+  "protectedVariables": ["j"],
+  "returnVariables": ["j"],
+  "finalReturn": "RETURN count(DISTINCT j) AS readableExecutedJobCount"
+}
+```
+
+The generated Cypher fragment must not include `RETURN`. Aggregates belong in `finalReturn` so they run after the IAM filter.
+
+## Local Environment
+
+Create a local `.env` file for development:
+
+```bash
+NEO4J_URI=bolt://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=testtest
+NEO4J_DATABASE=neo4j
+```
+
+`.env` is ignored by git.
+
+## Claude Desktop Config
+
+Example MCP config:
+
+```json
+{
+  "neo4j-mcp-iam": {
+    "command": "/usr/local/bin/neo4j-iam-mcp",
+    "args": [],
+    "env": {
+      "NEO4J_URI": "bolt://localhost:7687",
+      "NEO4J_USERNAME": "neo4j",
+      "NEO4J_PASSWORD": "testtest",
+      "NEO4J_DATABASE": "neo4j",
+      "NEO4J_READ_ONLY": "true",
+      "NEO4J_TELEMETRY": "false",
+      "NEO4J_LOG_LEVEL": "info",
+      "NEO4J_LOG_FORMAT": "text",
+      "NEO4J_SCHEMA_SAMPLE_SIZE": "100",
+      "NEO4J_MCP_PRINCIPAL": "michael.moore@neo4j.com",
+      "NEO4J_MCP_ALLOW_IMPERSONATION": "true"
     }
   }
 }
 ```
 
-See [MCP documentation > Configuration](https://neo4j.com/docs/mcp/current/configuration) for more details.
+`NEO4J_MCP_ALLOW_IMPERSONATION=true` is for local testing only. It allows a tool call to pass `"principal": "johnny.kinnaird@neo4j.com"`.
 
-## Links
+## Suggested Claude Prompt
 
-- [Documentation](https://neo4j.com/docs/mcp/current/): The official Neo4j MCP documentation.
-- [Discord](https://discord.gg/neo4j): The Neo4j discord channel.
-- [Contributing Guide](CONTRIBUTING.md): Contribution workflow, development environment, mocks and testing.
+```text
+You have access to a Neo4j IAM-aware MCP server named neo4j-mcp-iam.
 
-For issues and feedback, you can also create a GitHub issue with reproduction details (omit sensitive data).
+Use resolve-identity first to confirm the current principal and IAM groups.
+
+For this test, only work with these relationships:
+- (:User)-[:MEMBER_OF]->(:AdGroup)
+- ()-[:EXECUTES]->(:Job)
+
+Ignore all other relationship types unless explicitly asked.
+
+For all data queries, use secure-read-cypher only. Do not use raw Cypher tools if they appear.
+
+Generate read-only Cypher fragments only. The query field for secure-read-cypher should be the middle graph pattern or match fragment, without a RETURN clause.
+
+For job access questions, generate fragments over EXECUTES, for example:
+MATCH (a)-[:EXECUTES]->(j:Job)
+
+Use protectedVariables to identify variables that need IAM filtering, usually ["j"] for jobs.
+
+Use returnVariables to keep variables needed by the final result in scope.
+
+Use finalReturn for the final projection or aggregate after IAM filtering, for example:
+RETURN j
+RETURN count(DISTINCT j) AS readableExecutedJobCount
+
+Do not attempt writes, schema changes, procedure calls, or unrestricted queries.
+```
+
+## Build And Run
+
+Build the IAM binary:
+
+```bash
+task build
+```
+
+Run the compiled binary:
+
+```bash
+task run:compiled
+```
+
+Install for Claude Desktop:
+
+```bash
+sudo install -m 0755 bin/neo4j-iam-mcp /usr/local/bin/neo4j-iam-mcp
+```
+
+Developer watch mode rebuilds on source changes:
+
+```bash
+task dev:watch
+```
+
+To rebuild and install on every change, run from a shell that can write to `/usr/local/bin`:
+
+```bash
+sudo INSTALL_TO=/usr/local/bin/neo4j-iam-mcp ./scripts/dev-rebuild.sh
+```
+
+## Verification
+
+Focused checks used during development:
+
+```bash
+GOCACHE=/private/tmp/neo4j-mcp-iam-go-cache go test ./internal/tools/iam ./internal/tools/cypher
+GOCACHE=/private/tmp/neo4j-mcp-iam-go-cache go test ./internal/server -run TestToolRegister
+GOCACHE=/private/tmp/neo4j-mcp-iam-go-cache go build -C cmd/neo4j-mcp -o ../../bin/neo4j-iam-mcp
+```
+
+The full server test suite includes HTTP lifecycle tests that bind local ports; those may need a less restricted shell environment.
