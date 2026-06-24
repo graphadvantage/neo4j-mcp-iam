@@ -66,6 +66,116 @@ Example tool input:
 
 The generated Cypher fragment must not include `RETURN`. Aggregates belong in `finalReturn` so they run after the IAM filter.
 
+## Run Flow Sketch
+
+```mermaid
+flowchart TD
+  A["Claude / MCP Client"] --> B["resolve-identity"]
+
+  B --> C["Resolve principal"]
+  C --> C1["HTTP Basic username"]
+  C --> C2["Bearer JWT claim"]
+  C --> C3["NEO4J_MCP_PRINCIPAL"]
+  C --> C4["Optional test principal override"]
+
+  C --> D["Lookup (:User|:Principal)"]
+  D --> E["Expand groups"]
+  E --> E1["u.AdGroupList"]
+  E --> E2["(u)-[:MEMBER_OF*]->(:AdGroup)"]
+
+  E --> F["Return authzPrincipals"]
+  F --> F1["user identity"]
+  F --> F2["everyone"]
+  F --> F3["AD groups"]
+
+  A --> G["Natural language request"]
+  G --> H["text2cypher generates fragment"]
+  H --> H1["Example: MATCH (a)-[:EXECUTES]->(j:Job)"]
+
+  H1 --> I["secure-read-cypher input"]
+  I --> I1["query: generated MATCH fragment"]
+  I --> I2["protectedVariables: ['j']"]
+  I --> I3["returnVariables: ['j']"]
+  I --> I4["finalReturn: RETURN count(DISTINCT j) AS readableExecutedJobCount"]
+
+  I --> J["secure-read-cypher wrapper"]
+
+  J --> K["Auth prelude"]
+  K --> K1["Resolve principal"]
+  K --> K2["Build authzPrincipals"]
+
+  K --> L["Run generated fragment"]
+  L --> M["Carry variables forward"]
+  M --> M1["WITH authz, j"]
+
+  M1 --> N["Append IAM filter"]
+  N --> N1["WHERE any(p IN j.Permissions.Read WHERE p IN authzPrincipals)"]
+
+  N --> O["Append finalReturn"]
+  O --> O1["RETURN count(DISTINCT j) AS readableExecutedJobCount"]
+
+  O1 --> P["Neo4j executes composed read query"]
+  P --> Q["Filtered result returned to Claude"]
+
+  classDef client fill:#f7f7f7,stroke:#666,stroke-width:1px,color:#111
+  classDef identity fill:#dff3ff,stroke:#247ba0,stroke-width:2px,color:#0b3954
+  classDef text2cypher fill:#fff2cc,stroke:#d6a100,stroke-width:2px,color:#5f4300
+  classDef secure fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px,color:#123d16
+  classDef filter fill:#fde2e2,stroke:#c62828,stroke-width:2px,color:#5a1010
+  classDef execute fill:#ede7f6,stroke:#5e35b1,stroke-width:2px,color:#24124d
+
+  class A,Q client
+  class B,C,C1,C2,C3,C4,D,E,E1,E2,F,F1,F2,F3,K,K1,K2 identity
+  class G,H,H1 text2cypher
+  class I,I1,I2,I3,I4,J,L,M,M1,O,O1 secure
+  class N,N1 filter
+  class P execute
+```
+
+Equivalent composed query shape:
+
+```cypher
+// secure-read-cypher auth prelude
+CALL {
+  MATCH (u)
+  WHERE u.schemaId IS NULL
+    AND any(label IN labels(u) WHERE label IN ['User', 'Principal'])
+    AND any(key IN ['username', 'email', 'mail', 'userPrincipalName', 'upn', 'name', 'id']
+            WHERE u[key] IS NOT NULL
+              AND toLower(toString(u[key])) = toLower($__secure_auth_principal))
+
+  OPTIONAL MATCH (u)-[:MEMBER_OF|MEMBER_OF_GROUP|IN_GROUP|HAS_GROUP*1..]->(g)
+  WHERE g.schemaId IS NULL
+
+  WITH u,
+       collect(DISTINCT coalesce(g.name, g.group, g.displayName, g.email, g.mail, g.id)) AS groupPrincipals
+
+  RETURN {
+    principalId: coalesce(u.id, u.email, u.userPrincipalName, u.upn, u.name),
+    tenantId: u.tenantId,
+    authzPrincipals: [p IN groupPrincipals + coalesce(u.AdGroupList, []) + [
+      coalesce(u.username, u.email, u.userPrincipalName, u.upn, u.name, u.id),
+      'everyone'
+    ] WHERE p IS NOT NULL]
+  } AS authz
+}
+
+// generated text2cypher fragment
+CALL {
+  WITH authz
+  MATCH (a)-[:EXECUTES]->(j:Job)
+  RETURN j
+}
+
+// wrapper-applied authorization
+WITH authz, j
+WHERE any(p IN coalesce(j.`Permissions.Read`, [])
+          WHERE p IN authz.authzPrincipals)
+
+// wrapper-owned final aggregate
+RETURN count(DISTINCT j) AS readableExecutedJobCount
+```
+
 ## Local Environment
 
 Create a local `.env` file for development:
